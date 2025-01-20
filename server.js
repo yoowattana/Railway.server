@@ -1,0 +1,30 @@
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// อนุญาตให้ทุก origin เรียกใช้ proxy server
+app.use(cors());
+
+// อนุญาตให้รับ JSON body
+app.use(express.json());
+
+// สร้าง endpoint สำหรับเรียกใช้ Google Apps Script API
+app.post('/call-google-apps-script', async (req, res) => {
+  try {
+    const response = await axios.post(
+      'https://script.google.com/macros/s/AKfycbzTcs_Du5rWzc-dnTdRrUUyQ2I7UUYl6MRrt9x1k420K1BVW1oegQHUALgaBU6LEcJz/exec',
+      req.body
+    );
+    res.send(response.data);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+// เริ่มต้นเซิร์ฟเวอร์
+app.listen(PORT, () => {
+  console.log(`Proxy server is running on http://localhost:${PORT}`);
+});
