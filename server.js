@@ -13,12 +13,17 @@ app.use((req, res, next) => {
 // Middleware เพื่อ parse JSON body
 app.use(express.json());
 
+// Route สำหรับ GET request ที่ path '/'
+app.get('/', (req, res) => {
+    res.send('Welcome to the Proxy Server!');
+});
+
 // Route สำหรับส่งข้อมูลไปยัง Google Apps Script
 app.post('/submit', async (req, res) => {
     try {
         // ส่งข้อมูลไปยัง Google Apps Script
         const response = await axios.post(
-            'https://script.google.com/macros/s/AKfycbzsoBOGGqO2BcNnbZndevdx4DHYFzVGdXQo1X_bTLdgX2Ma2avGyXd3KOIhR5N7ZdqL/exec',
+            'https://script.google.com/macros/s/AKfycbzsoBOGGqO2BcNnbZndevdx4DHYFzVGdXQo1X_bTLdgX2Ma2avGyXd3KOIhR5N7ZdqL/exec', // URL ใหม่ของคุณ
             req.body
         );
         // ส่งผลลัพธ์กลับไปยัง client
