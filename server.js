@@ -25,6 +25,7 @@ app.post('/call-google-apps-script', async (req, res) => {
 });
 
 // เริ่มต้นเซิร์ฟเวอร์
-app.listen(PORT, () => {
-  console.log(`Proxy server is running on http://localhost:${PORT}`);
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Proxy server is running on http://0.0.0.0:${PORT}`);
 });
