@@ -22,8 +22,34 @@ const credentials = {
 const authClient = new google.auth.JWT({
   email: credentials.client_email,
   key: credentials.private_key,
-  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  scopes: [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive',
+  ],
 });
+
+// ฟังก์ชันสำหรับอัปโหลดรูปภาพลงใน Google Drive
+async function uploadImageToDrive(base64, fileName, mimeType) {
+  const drive = google.drive({ version: 'v3', auth: authClient });
+
+  const fileMetadata = {
+    name: fileName,
+    parents: [process.env.GOOGLE_DRIVE_FOLDER_ID], // ID ของโฟลเดอร์ใน Google Drive
+  };
+
+  const media = {
+    mimeType: mimeType,
+    body: Buffer.from(base64, 'base64'),
+  };
+
+  const response = await drive.files.create({
+    resource: fileMetadata,
+    media: media,
+    fields: 'id',
+  });
+
+  return `https://drive.google.com/uc?export=view&id=${response.data.id}`;
+}
 
 // ฟังก์ชันสำหรับบันทึกข้อมูลลงใน Google Sheets
 async function appendData(data) {
@@ -50,11 +76,17 @@ async function appendData(data) {
 // สร้าง endpoint สำหรับรับข้อมูลจากเว็บแอปพลิเคชัน
 app.post('/submit', async (req, res) => {
   try {
-    const { userchatId, nameId, numberId, roleId } = req.body;
+    const { userlineId, nameId, numberId, roleId, base64, fileName, mimeType } = req.body;
+
+    let imageUrl = '';
+    if (base64 && fileName && mimeType) {
+      // อัปโหลดรูปภาพลงใน Google Drive
+      imageUrl = await uploadImageToDrive(base64, fileName, mimeType);
+    }
 
     // บันทึกข้อมูลลงใน Google Sheets
     const timestamp = new Date().toLocaleString();
-    await appendData([timestamp, userchatId, nameId, numberId, roleId]);
+    await appendData([timestamp, userlineId, nameId, numberId, roleId, imageUrl]);
 
     res.json({ success: true, message: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
   } catch (error) {
