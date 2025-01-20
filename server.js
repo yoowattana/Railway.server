@@ -5,12 +5,8 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// อนุญาตให้เฉพาะ origin 'https://yoowattana.github.io' เรียกใช้ API
-app.use(cors({
-  origin: 'https://yoowattana.github.io', // อนุญาตเฉพาะ origin นี้
-  methods: ['GET', 'POST'], // อนุญาตเฉพาะ method นี้
-  allowedHeaders: ['Content-Type'], // อนุญาตเฉพาะ header นี้
-}));
+// อนุญาตให้ทุก origin เรียกใช้ API
+app.use(cors());
 
 // อนุญาตให้รับ JSON body
 app.use(express.json());
@@ -46,13 +42,18 @@ async function uploadImageToDrive(base64, fileName, mimeType) {
     body: Buffer.from(base64, 'base64'),
   };
 
-  const response = await drive.files.create({
-    resource: fileMetadata,
-    media: media,
-    fields: 'id',
-  });
+  try {
+    const response = await drive.files.create({
+      resource: fileMetadata,
+      media: media,
+      fields: 'id',
+    });
 
-  return `https://drive.google.com/uc?export=view&id=${response.data.id}`;
+    return `https://drive.google.com/uc?export=view&id=${response.data.id}`;
+  } catch (error) {
+    console.error('Error uploading image to Drive:', error);
+    throw error;
+  }
 }
 
 // ฟังก์ชันสำหรับบันทึกข้อมูลลงใน Google Sheets
@@ -64,17 +65,22 @@ async function appendData(data) {
   await authClient.authorize();
 
   // บันทึกข้อมูลลงใน Google Sheets
-  const response = await google.sheets('v4').spreadsheets.values.append({
-    auth: authClient,
-    spreadsheetId: SPREADSHEET_ID,
-    range: RANGE,
-    valueInputOption: 'RAW',
-    resource: {
-      values: [data], // ข้อมูลที่ต้องการบันทึก
-    },
-  });
+  try {
+    const response = await google.sheets('v4').spreadsheets.values.append({
+      auth: authClient,
+      spreadsheetId: SPREADSHEET_ID,
+      range: RANGE,
+      valueInputOption: 'RAW',
+      resource: {
+        values: [data], // ข้อมูลที่ต้องการบันทึก
+      },
+    });
 
-  return response.data;
+    return response.data;
+  } catch (error) {
+    console.error('Error appending data to Sheets:', error);
+    throw error;
+  }
 }
 
 // สร้าง endpoint สำหรับรับข้อมูลจากเว็บแอปพลิเคชัน
@@ -92,8 +98,6 @@ app.post('/submit', async (req, res) => {
     const timestamp = new Date().toLocaleString();
     await appendData([timestamp, userchatId, nameId, numberId, roleId, imageUrl]);
 
-    // ส่ง CORS headers กลับไปยังเว็บแอปพลิเคชัน
-    res.setHeader('Access-Control-Allow-Origin', 'https://yoowattana.github.io');
     res.json({ success: true, message: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
   } catch (error) {
     console.error('Error:', error);
