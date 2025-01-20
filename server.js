@@ -1,46 +1,65 @@
 const express = require('express');
-const axios = require('axios');
+const { google } = require('googleapis');
+const cors = require('cors');
+
 const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Middleware เพื่ออนุญาต CORS
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*'); // อนุญาตทุกโดเมน
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS'); // อนุญาต methods
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization'); // อนุญาต headers
-    next();
-});
+// อนุญาตให้ทุก origin เรียกใช้ API
+app.use(cors());
 
-// Middleware เพื่อ parse JSON body
+// อนุญาตให้รับ JSON body
 app.use(express.json());
 
-// Route สำหรับ GET request ที่ path '/'
-app.get('/', (req, res) => {
-    res.send('Welcome to the Proxy Server!');
+// โหลด credentials จากไฟล์
+const credentials = require('./service-account.json');
+
+// ตั้งค่า Service Account
+const authClient = new google.auth.JWT({
+  email: credentials.client_email,
+  key: credentials.private_key,
+  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
 
-// Route สำหรับส่งข้อมูลไปยัง Google Apps Script
+// ฟังก์ชันสำหรับบันทึกข้อมูลลงใน Google Sheets
+async function appendData(data) {
+  const SPREADSHEET_ID = '1o9P8LYlNTFahDOMxN0fkLeBnyKNVRm3H8WoCuaDwKNs'; // ID ของสเปรดชีต
+  const RANGE = 'MEMBER!A1'; // ชื่อชีตและเซลล์เริ่มต้น
+
+  // ยืนยันตัวตน
+  await authClient.authorize();
+
+  // บันทึกข้อมูลลงใน Google Sheets
+  const response = await google.sheets('v4').spreadsheets.values.append({
+    auth: authClient,
+    spreadsheetId: SPREADSHEET_ID,
+    range: RANGE,
+    valueInputOption: 'RAW',
+    resource: {
+      values: [data], // ข้อมูลที่ต้องการบันทึก
+    },
+  });
+
+  return response.data;
+}
+
+// สร้าง endpoint สำหรับรับข้อมูลจากเว็บแอปพลิเคชัน
 app.post('/submit', async (req, res) => {
-    try {
-        // ส่งข้อมูลไปยัง Google Apps Script
-        const response = await axios.post(
-            'https://script.google.com/macros/s/AKfycbwwBgp_N4Vj09Z-62fsP9ldQ8i9v4XWdI2LV2ZtvpcGWNsecq33OkHBFA7xTkp6ppKo7w/exec', // URL ใหม่ของคุณ
-            req.body
-        );
-        // ส่งผลลัพธ์กลับไปยัง client
-        res.json(response.data);
-    } catch (error) {
-        console.error('Error:', error.message);
-        res.status(500).json({ error: 'Something went wrong' });
-    }
+  try {
+    const { userchatId, nameId, numberId, roleId } = req.body;
+
+    // บันทึกข้อมูลลงใน Google Sheets
+    const timestamp = new Date().toLocaleString();
+    await appendData([timestamp, userchatId, nameId, numberId, roleId]);
+
+    res.json({ success: true, message: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
-// รองรับ Preflight Request
-app.options('/submit', (req, res) => {
-    res.send();
-});
-
-// เริ่มเซิร์ฟเวอร์
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Proxy server is running on http://0.0.0.0:${PORT}`);
+// เริ่มต้นเซิร์ฟเวอร์
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
