@@ -5,8 +5,12 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// อนุญาตให้ทุก origin เรียกใช้ API
-app.use(cors());
+// อนุญาตให้เฉพาะ origin 'https://yoowattana.github.io' เรียกใช้ API
+app.use(cors({
+  origin: 'https://yoowattana.github.io', // อนุญาตเฉพาะ origin นี้
+  methods: ['GET', 'POST'], // อนุญาตเฉพาะ method นี้
+  allowedHeaders: ['Content-Type'], // อนุญาตเฉพาะ header นี้
+}));
 
 // อนุญาตให้รับ JSON body
 app.use(express.json());
@@ -88,6 +92,8 @@ app.post('/submit', async (req, res) => {
     const timestamp = new Date().toLocaleString();
     await appendData([timestamp, userchatId, nameId, numberId, roleId, imageUrl]);
 
+    // ส่ง CORS headers กลับไปยังเว็บแอปพลิเคชัน
+    res.setHeader('Access-Control-Allow-Origin', 'https://yoowattana.github.io');
     res.json({ success: true, message: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
   } catch (error) {
     console.error('Error:', error);
