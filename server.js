@@ -76,17 +76,17 @@ async function appendData(data) {
 // สร้าง endpoint สำหรับรับข้อมูลจากเว็บแอปพลิเคชัน
 app.post('/submit', async (req, res) => {
   try {
-    const { userlineId, nameId, numberId, roleId, base64, fileName, mimeType } = req.body;
+    const { userchatId, nameId, numberId, roleId, base64, fileName, fileType } = req.body;
 
     let imageUrl = '';
-    if (base64 && fileName && mimeType) {
+    if (base64 && fileName && fileType) {
       // อัปโหลดรูปภาพลงใน Google Drive
-      imageUrl = await uploadImageToDrive(base64, fileName, mimeType);
+      imageUrl = await uploadImageToDrive(base64, fileName, fileType);
     }
 
     // บันทึกข้อมูลลงใน Google Sheets
     const timestamp = new Date().toLocaleString();
-    await appendData([timestamp, userlineId, nameId, numberId, roleId, imageUrl]);
+    await appendData([timestamp, userchatId, nameId, numberId, roleId, imageUrl]);
 
     res.json({ success: true, message: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
   } catch (error) {
