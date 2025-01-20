@@ -23,7 +23,7 @@ app.post('/submit', async (req, res) => {
     try {
         // ส่งข้อมูลไปยัง Google Apps Script
         const response = await axios.post(
-            'https://script.google.com/macros/s/AKfycbzsoBOGGqO2BcNnbZndevdx4DHYFzVGdXQo1X_bTLdgX2Ma2avGyXd3KOIhR5N7ZdqL/exec', // URL ใหม่ของคุณ
+            'https://script.google.com/macros/s/AKfycbwwBgp_N4Vj09Z-62fsP9ldQ8i9v4XWdI2LV2ZtvpcGWNsecq33OkHBFA7xTkp6ppKo7w/exec', // URL ใหม่ของคุณ
             req.body
         );
         // ส่งผลลัพธ์กลับไปยัง client
