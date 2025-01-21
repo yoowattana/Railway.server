@@ -83,6 +83,15 @@ async function uploadImageToDrive(file) {
     fields: 'id,webViewLink', // รับ URL ของไฟล์
   });
 
+  // ตั้งค่า permission ให้ไฟล์เป็นสาธารณะ
+  await drive.permissions.create({
+    fileId: response.data.id,
+    requestBody: {
+      role: 'reader',
+      type: 'anyone',
+    },
+  });
+
   // ลบไฟล์ชั่วคราวหลังจากอัปโหลด
   fs.unlinkSync(file.path);
 
