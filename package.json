@@ -1,13 +1,16 @@
 {
   "name": "my-railway-project",
   "version": "1.0.0",
+  "description": "A project to handle form submissions and upload images to Google Drive",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
+    "googleapis": "^120.0.0",
     "cors": "^2.8.5",
-    "googleapis": "^144.0.0"
+    "multer": "^1.4.5-lts.1",
+    "fs": "0.0.1-security"
   }
 }
