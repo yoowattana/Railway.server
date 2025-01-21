@@ -1,9 +1,17 @@
 const express = require('express');
 const { google } = require('googleapis');
 const cors = require('cors');
+const multer = require('multer'); // สำหรับจัดการไฟล์ที่อัปโหลด
+const fs = require('fs'); // สำหรับอ่านไฟล์
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ตรวจสอบ Environment Variables
+if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY || !process.env.GOOGLE_PROJECT_ID) {
+  console.error('Error: Missing Google Service Account credentials in environment variables.');
+  process.exit(1); // หยุดการทำงานของเซิร์ฟเวอร์
+}
 
 // อนุญาตให้ทุก origin เรียกใช้ API
 app.use(cors());
@@ -24,37 +32,9 @@ const authClient = new google.auth.JWT({
   key: credentials.private_key,
   scopes: [
     'https://www.googleapis.com/auth/spreadsheets',
-    'https://www.googleapis.com/auth/drive',
+    'https://www.googleapis.com/auth/drive', // เพิ่ม scope สำหรับ Google Drive
   ],
 });
-
-// ฟังก์ชันสำหรับอัปโหลดรูปภาพลงใน Google Drive
-async function uploadImageToDrive(base64, fileName, mimeType) {
-  const drive = google.drive({ version: 'v3', auth: authClient });
-
-  const fileMetadata = {
-    name: fileName,
-    parents: [process.env.GOOGLE_DRIVE_FOLDER_ID], // ID ของโฟลเดอร์ใน Google Drive
-  };
-
-  const media = {
-    mimeType: mimeType,
-    body: Buffer.from(base64, 'base64'),
-  };
-
-  try {
-    const response = await drive.files.create({
-      resource: fileMetadata,
-      media: media,
-      fields: 'id',
-    });
-
-    return `https://drive.google.com/uc?export=view&id=${response.data.id}`;
-  } catch (error) {
-    console.error('Error uploading image to Drive:', error);
-    throw error;
-  }
-}
 
 // ฟังก์ชันสำหรับบันทึกข้อมูลลงใน Google Sheets
 async function appendData(data) {
@@ -65,40 +45,70 @@ async function appendData(data) {
   await authClient.authorize();
 
   // บันทึกข้อมูลลงใน Google Sheets
-  try {
-    const response = await google.sheets('v4').spreadsheets.values.append({
-      auth: authClient,
-      spreadsheetId: SPREADSHEET_ID,
-      range: RANGE,
-      valueInputOption: 'RAW',
-      resource: {
-        values: [data], // ข้อมูลที่ต้องการบันทึก
-      },
-    });
+  const response = await google.sheets('v4').spreadsheets.values.append({
+    auth: authClient,
+    spreadsheetId: SPREADSHEET_ID,
+    range: RANGE,
+    valueInputOption: 'RAW',
+    resource: {
+      values: [data], // ข้อมูลที่ต้องการบันทึก
+    },
+  });
 
-    return response.data;
-  } catch (error) {
-    console.error('Error appending data to Sheets:', error);
-    throw error;
-  }
+  return response.data;
 }
 
+// ฟังก์ชันสำหรับอัปโหลดรูปภาพลงใน Google Drive
+async function uploadImageToDrive(file) {
+  const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID; // ใช้ Environment Variable สำหรับ Drive Folder ID
+
+  // ยืนยันตัวตน
+  await authClient.authorize();
+
+  const drive = google.drive({ version: 'v3', auth: authClient });
+
+  const fileMetadata = {
+    name: file.originalname,
+    parents: [DRIVE_FOLDER_ID], // โฟลเดอร์ปลายทาง
+  };
+
+  const media = {
+    mimeType: file.mimetype,
+    body: fs.createReadStream(file.path), // อ่านไฟล์จาก path
+  };
+
+  const response = await drive.files.create({
+    resource: fileMetadata,
+    media: media,
+    fields: 'id,webViewLink', // รับ URL ของไฟล์
+  });
+
+  // ลบไฟล์ชั่วคราวหลังจากอัปโหลด
+  fs.unlinkSync(file.path);
+
+  return response.data;
+}
+
+// ตั้งค่า multer สำหรับจัดการไฟล์ที่อัปโหลด
+const upload = multer({ dest: 'uploads/' });
+
 // สร้าง endpoint สำหรับรับข้อมูลจากเว็บแอปพลิเคชัน
-app.post('/submit', async (req, res) => {
+app.post('/submit', upload.single('image'), async (req, res) => {
   try {
-    const { userchatId, nameId, numberId, roleId, base64, fileName, fileType } = req.body;
+    const { userchatId, nameId, numberId, roleId } = req.body;
+    const imageFile = req.file;
 
     let imageUrl = '';
-    if (base64 && fileName && fileType) {
-      // อัปโหลดรูปภาพลงใน Google Drive
-      imageUrl = await uploadImageToDrive(base64, fileName, fileType);
+    if (imageFile) {
+      const driveResponse = await uploadImageToDrive(imageFile);
+      imageUrl = driveResponse.webViewLink; // รับ URL ของไฟล์รูปภาพ
     }
 
     // บันทึกข้อมูลลงใน Google Sheets
     const timestamp = new Date().toLocaleString();
     await appendData([timestamp, userchatId, nameId, numberId, roleId, imageUrl]);
 
-    res.json({ success: true, message: 'บันทึกข้อมูลเรียบร้อยแล้ว' });
+    res.json({ success: true, message: 'บันทึกข้อมูลเรียบร้อยแล้ว', imageUrl });
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ success: false, message: error.message });
