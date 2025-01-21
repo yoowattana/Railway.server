@@ -86,7 +86,7 @@ async function uploadImageToDrive(file, numberId, nameId) {
   const drive = google.drive({ version: 'v3', auth: authClient });
 
   // ตั้งชื่อไฟล์เป็น รหัสพนักงาน+ชื่อ-สกุล.jpg
-  const fileName = `${numberId}+${nameId}.jpg`;
+  const fileName = `${numberId}_${nameId}.jpg`;
 
   const fileMetadata = {
     name: fileName, // ตั้งชื่อไฟล์
